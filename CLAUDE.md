@@ -34,6 +34,7 @@ the puzzle cheaper to disclose than to justify, it is the wrong change.
 ## Layout
 
 ```
+.github/workflows/ci.yml        build + verify on every PR and push to main
 data/paradise-boundary.geojson  the service area (PROVISIONAL — see docs/DATA.md)
 public/mock/map-events.json     stand-in for GET /map-events
 scripts/verify.mjs              headless checks  → npm run verify

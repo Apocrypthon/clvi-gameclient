@@ -1,12 +1,16 @@
 # STATE
 
-**Last session: 2026-09-03. Repo is green: build, verify, and smoke all pass.**
+**Last session: 2026-09-03. Repo is green: build, verify, and smoke all pass, and
+CI now enforces the first two.**
 
 > **Branch divergence, read this first.** SEED.md and LOOP.md say ship to `loop`.
-> This session's harness designated `claude/strata-client-bootstrap-60ptvl`, so
-> that is where the work is. If your harness gives you a branch, use it and note
-> it here; if it does not, `loop` is the default. `main` holds only the original
-> LICENSE and README.
+> The bootstrap session's harness designated `claude/strata-client-bootstrap-60ptvl`
+> instead, and that branch merged to `main` as
+> [PR #1](https://github.com/Apocrypthon/clvi-gameclient/pull/1). `main` now
+> carries the full bootstrap. If your harness gives you a branch, use it and note
+> it here; if it does not, `loop` is the default. A merged PR cannot take new
+> commits — restart your branch from `main` rather than stacking on merged
+> history.
 
 ## Where the world is
 
@@ -56,7 +60,10 @@ machine** — each bit also doubles the energy estimate (docs/ENERGY.md).
 
 ## Verify
 
-Run all three. The first two are cheap and have no external dependency.
+Run all three. The first two are cheap, have no external dependency, and are
+**enforced by CI** (`.github/workflows/ci.yml`) on every pull request and every
+push to `main`, on Node 20 and 22. The third is still manual — that gap is the
+first housekeeping item below.
 
 ```bash
 npm run build     # tsc --noEmit && vite build — must stay green
@@ -141,8 +148,15 @@ MAP and FIND alternate. The top item of each is sized for one session.
 
 ### Both / housekeeping
 
-- **A CI check.** `npm run build && npm run verify` on push would catch the class
-  of thing this loop currently catches by hand.
+- **Extend CI to the browser smoke test.** CI runs build and verify; nothing
+  automated exercises the browser path, so an increment that breaks the dig or
+  the reveal reaches `main` green. Blocked on a decision rather than on work:
+  `npm run smoke` needs Playwright, which is deliberately *not* a committed
+  dependency (docs/STATE.md#Verify explains why). Either add it as a devDependency
+  and accept the install cost on every `npm ci`, or install it unsaved in a
+  separate CI job that is allowed to be slower than the fast gate. Prefer the
+  second — it keeps `npm ci` cheap for contributors — and keep the two jobs
+  separate so a browser flake never blocks a typecheck.
 - **Netlify deploy is configured but unverified.** `netlify.toml` builds and
   publishes `dist`; nobody has watched it deploy. `base: './'` in the Vite config
   means the bundle is path-agnostic, so a subdirectory deploy is fine too.

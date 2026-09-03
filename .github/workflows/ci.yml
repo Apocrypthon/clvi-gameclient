@@ -1,0 +1,52 @@
+name: CI
+
+# The loop's VERIFY step, enforced. docs/LOOP.md requires `npm run build` and
+# `npm run verify` to pass before an increment ships; this runs both on the way
+# in, so a red increment cannot reach main the way the bootstrap one could.
+#
+# The browser smoke test (`npm run smoke`) is deliberately NOT here yet: it needs
+# Playwright, which is not a committed dependency. See docs/STATE.md#Next.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is what netlify.toml deploys with; 22 is what the dev containers
+        # run. Both are in vite's supported range and the loop should not find
+        # out about a gap between them from a failed deploy.
+        node: ['20', '22']
+
+    name: build + verify (node ${{ matrix.node }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      # tsc --noEmit && vite build
+      - name: Build
+        run: npm run build
+
+      # Grid, projection, diffusion bounds, registry draw, the solve rule,
+      # energy. Prints the local hash rate, which is worth reading in the log
+      # before anyone retunes DEFAULT_DIFFICULTY_BITS.
+      - name: Verify
+        run: npm run verify

@@ -4,6 +4,47 @@ Newest first. One entry per session: date · what · why · files · verify resu
 
 ---
 
+## 2026-09-03 — CI enforces build + verify
+
+**What.** `.github/workflows/ci.yml`: `npm ci`, `npm run build`, `npm run verify`
+on every pull request and every push to `main`, across a Node 20 / 22 matrix.
+
+**Why.** The housekeeping item from the previous entry. The bootstrap merged with
+zero check runs on it — nothing but hand-running the gates stood between an
+increment and a red `main`, which is exactly the thing a relay of context-free
+sessions cannot be trusted to do consistently. LOOP.md already requires these two
+commands; this makes the requirement enforceable rather than aspirational.
+
+**Notable decisions.**
+
+- **Node 20 *and* 22, not one.** 20 is what `netlify.toml` deploys with; 22 is what
+  the dev containers run and the only version reachable from this environment. A
+  single pin would have meant shipping an untested version constraint either way,
+  and a divergence between build and deploy should surface in CI rather than in a
+  failed deploy.
+- **The browser smoke test is not in CI.** `npm run smoke` needs Playwright, which
+  is deliberately not a committed dependency, so wiring it in is a real decision
+  about `npm ci` cost rather than a line of YAML. Left as the top housekeeping
+  item in STATE.md with the two options written out. This means CI does **not**
+  cover the dig, the reveal, or anything a player can see — worth knowing before
+  trusting a green check.
+- **`fail-fast: false`** so a break on one Node version still reports the other,
+  and `cancel-in-progress` concurrency so superseded pushes stop burning runners.
+
+**Files.** `.github/workflows/ci.yml` (new), `CLAUDE.md` (layout), `docs/STATE.md`
+(Verify section, housekeeping, and the branch note now that PR #1 has merged).
+
+**Verify.** Ran the workflow's exact steps against a clean `git archive` checkout
+rather than the warm working tree: `npm ci` (13 packages), `npm run build` green,
+`npm run verify` 30/30 — local hash rate 28 576 h/s that run, implying a 4.6 s
+median at 17 bits on this container. The YAML was parsed to confirm the job,
+matrix and step structure. The Node 20 leg is unexercised locally — only Node 22
+is installed here — but every dependency's `engines` range admits it (vite
+`^18 || >=20`, typescript `>=14.17`, esbuild `>=12`) and the first CI run on the
+PR is the real check.
+
+---
+
 ## 2026-09-03 — bootstrap M0, and M1–M5 / A1–A6
 
 **What.** Brought the repo up from empty to the run's definition of done, and
