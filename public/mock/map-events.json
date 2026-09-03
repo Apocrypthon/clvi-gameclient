@@ -1,0 +1,52 @@
+[
+  {
+    "cellId": "P-18-25",
+    "ts": 1788285600000,
+    "kind": "restored"
+  },
+  {
+    "cellId": "P-19-25",
+    "ts": 1788285737000,
+    "kind": "restored"
+  },
+  {
+    "cellId": "P-18-26",
+    "ts": 1788285874000,
+    "kind": "restored"
+  },
+  {
+    "cellId": "P-20-27",
+    "ts": 1788286011000,
+    "kind": "restored"
+  },
+  {
+    "cellId": "P-21-28",
+    "ts": 1788286148000,
+    "kind": "restored"
+  },
+  {
+    "cellId": "P-19-30",
+    "ts": 1788286285000,
+    "kind": "restored"
+  },
+  {
+    "cellId": "P-24-34",
+    "ts": 1788286422000,
+    "kind": "restored"
+  },
+  {
+    "cellId": "P-25-35",
+    "ts": 1788286559000,
+    "kind": "restored"
+  },
+  {
+    "cellId": "P-30-40",
+    "ts": 1788286696000,
+    "kind": "restored"
+  },
+  {
+    "cellId": "P-45-30",
+    "ts": 1788286833000,
+    "kind": "restored"
+  }
+]
