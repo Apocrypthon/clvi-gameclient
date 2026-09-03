@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "name": "paradise-nv-boundary",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Paradise",
+        "state": "NV",
+        "county": "Clark",
+        "type": "census-designated-place",
+        "PROVISIONAL": true,
+        "source": "hand-authored from the published Paradise CDP extent; see docs/DATA.md",
+        "note": "Stylized outline. The northern notch approximates Winchester CDP, which is a separate CDP and is NOT part of Paradise. Replace with the OSM administrative relation when a session has network access to Overpass.",
+        "authored": "2026-09-03"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-115.1755, 36.1447],
+            [-115.1520, 36.1447],
+            [-115.1520, 36.1150],
+            [-115.0850, 36.1150],
+            [-115.0620, 36.0930],
+            [-115.0620, 36.0560],
+            [-115.0900, 36.0330],
+            [-115.1600, 36.0330],
+            [-115.2030, 36.0560],
+            [-115.2030, 36.0830],
+            [-115.1830, 36.1000],
+            [-115.1755, 36.1447]
+          ]
+        ]
+      }
+    }
+  ]
+}
