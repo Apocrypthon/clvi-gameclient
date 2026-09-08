@@ -3,3 +3,10 @@ dist
 .DS_Store
 *.local
 .vite
+
+# --- Paradise Reclaimed (Godot 3.6.2) ---
+.import/
+build/
+export/
+*.translation
+.mono/
