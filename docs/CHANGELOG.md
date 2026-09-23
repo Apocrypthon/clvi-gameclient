@@ -42,14 +42,26 @@ now two stacks, which CLAUDE.md's rules did not previously contemplate.
   the speculative `require_sealed`/`_seal()` seam was removed rather than left
   implying something was coming.
 
+- **The auth header came off too.** The backend's bootstrap branch sets
+  `access-control-allow-headers: content-type` and puts no auth on any endpoint
+  — identity is `playerId` in the body, abuse is handled by per-player and
+  per-IP rate limits. So `session.gd` holds a player id and a `GRD-xxxxxx`
+  display id rather than a bearer token that nothing would have read, and
+  `strata_client.gd` sends a deliberately bare header set. Still never
+  persisted, which was the original requirement.
+
 - **Two contract problems surfaced while reading those repos** and are recorded
   under Blocked in STATE.md, not fixed here. (a) ADR-001 defers the Godot stack
   and says moving to it *"requires a superseding ADR, not a session's judgment
   call"* — so this track is written but unratified, and needs a human decision.
-  (b) This repo has drifted from the frozen Contracts v1 block: difficulty start
-  17 vs canonical 18, floor 8 vs 12, no ceiling 24. CONTRACTS.md makes
-  reconciling that the next loop item; it changes solve feel and the energy
-  estimate, so it wants its own increment.
+  (b) `src/mockLedger.ts` does not match the live backend
+  (`clvi-backend@claude/strata-ledger-bootstrap-csa88x`, read directly):
+  difficulty start 17 vs 18 and floor 8 vs 12, the client picks a difficulty the
+  server actually owns and auto-tunes, `/challenge` takes only `playerId`, the
+  TTL is 90 s not 120 s, and `nonce` is a **string** server-side where
+  `src/contracts.ts` types it `number` — which alone would get every submit
+  rejected. Latent while the client talks to the mock; a wall of 400s the day
+  the URL is switched. Recorded as the top housekeeping item.
 
 **Files.** `godot/project.godot`, `godot/world/paradise_world.{gd,tscn}`,
 `godot/net/{session,strata_client}.gd`, `docs/GODOT.md` (new); `CLAUDE.md`,

@@ -7,17 +7,21 @@ extends Node
 ##   2. TLS options are the verifying defaults (bundled CA chain, hostname
 ##      checked). Nothing in this file can turn verification off.
 ##
-## There is deliberately NO application-layer encryption envelope here, and
-## that is a contract decision rather than an omission:
+## There is deliberately NO application-layer encryption envelope, and no auth
+## header. Both are contract decisions, checked against the live backend at
+## clvi-backend@claude/strata-ledger-bootstrap-csa88x:
 ##
-##   clvi-architecture ADR-002 — "No key material is generated, stored, or
-##   asked for on the device in the MVP."
+##   - ADR-002: "No key material is generated, stored, or asked for on the
+##     device in the MVP." An app-layer seal needs a client-side key.
+##   - The backend's CORS policy allows the `content-type` request header ONLY
+##     (src/lib/http.ts). An Authorization header is refused at preflight.
+##   - Its endpoints carry no auth: identity is `playerId` in the JSON body,
+##     abuse is handled by per-player and per-IP rate limits.
 ##
-## An app-layer seal needs a client-side key, so adding one would put this
-## client out of contract. The real model is TLS for confidentiality in
-## transit, a Supabase OTP bearer token for identity (ADR-002), and
-## server-side HMAC-SHA256 for ledger integrity (ADR-004) — none of which
-## asks the client to hold key material. See docs/GODOT.md.
+## So: TLS for confidentiality in transit (enforced below), playerId in the
+## body for identity, and server-side HMAC-SHA256 with a prev_hash chain for
+## ledger integrity (ADR-004) — none of which asks the client to hold key
+## material. See docs/GODOT.md for the endpoint table.
 
 signal request_failed(path: String, reason: String)
 
@@ -46,12 +50,11 @@ func _request(method: int, path: String, payload: Variant) -> Dictionary:
 	if http.has_method("set_tls_options"):
 		http.set_tls_options(TLSOptions.client())
 
-	var headers := PackedStringArray(["Accept: application/json"])
+	# content-type is the only request header the backend's CORS allows, so the
+	# header set stays deliberately bare — see the note at the top of this file.
+	var headers := PackedStringArray()
 	if payload != null:
 		headers.append("Content-Type: application/json")
-	var auth := Session.authorization_header()
-	if not auth.is_empty():
-		headers.append(auth)
 
 	var body := "" if payload == null else JSON.stringify(payload)
 	var err := http.request(url, headers, method, body)
@@ -69,12 +72,13 @@ func _request(method: int, path: String, payload: Variant) -> Dictionary:
 		return _fail(path, "transport failed (result %d)" % result)
 
 	var parsed: Variant = JSON.parse_string(raw.get_string_from_utf8())
-	if status == 401 or status == 403:
-		# The backend disowned the session; drop it rather than retrying with a
-		# token it has already rejected.
-		Session.close("rejected by backend")
 	if status < 200 or status >= 300:
-		return _fail(path, "backend returned %d" % status)
+		# The backend answers errors as {"error": {"code", "message"}}; surface
+		# the code, which is more use than the status alone.
+		var code := "http_%d" % status
+		if parsed is Dictionary and parsed.has("error") and parsed["error"] is Dictionary:
+			code = str(parsed["error"].get("code", code))
+		return _fail(path, "backend returned %d (%s)" % [status, code])
 
 	return {"ok": true, "status": status, "data": parsed, "error": ""}
 

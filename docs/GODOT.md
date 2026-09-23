@@ -90,29 +90,48 @@ different design (native buffer, or never holding a bearer token client-side).
 2. TLS options are the verifying defaults (bundled CA chain, hostname checked),
    and nothing in the file can switch verification off.
 
-There is deliberately **no application-layer encryption envelope**, and that is
-a contract decision rather than an omission. From `clvi-architecture`
-ADR-002: *"No key material is generated, stored, or asked for on the device in
-the MVP."* An app-layer seal needs a client-side key, so adding one would put
-this client out of contract.
+There is deliberately **no application-layer encryption envelope and no auth
+header**. Both were checked against the live backend
+(`clvi-backend@claude/strata-ledger-bootstrap-csa88x`), not assumed:
 
-The actual security model of the system, read out of `clvi-architecture` and
-`clvi-backend`:
+- ADR-002: *"No key material is generated, stored, or asked for on the device in
+  the MVP."* An app-layer seal needs a client-side key.
+- `src/lib/http.ts` sets `access-control-allow-headers: content-type` — **only**.
+  An `Authorization` header is refused at preflight.
+- No endpoint reads an auth header. Identity is `playerId` in the JSON body;
+  abuse is handled by per-player and per-IP rate limits.
+
+So the security model is:
 
 | concern | mechanism | where |
 | --- | --- | --- |
 | confidentiality in transit | TLS | here, enforced |
-| identity | Supabase email OTP → bearer token, display id `GRD-xxxxxx` | ADR-002 |
-| ledger integrity | HMAC-SHA256 over canonical JSON, `prev_hash` chain | ADR-004, server-side only |
-| secrets | `SUPABASE_SERVICE_ROLE_KEY`, `LEDGER_SECRET` | server env only, never the client |
+| identity | `playerId` in the request body | backend endpoints |
+| abuse | rate limits, 30/min per player and 90/min per IP on `/challenge` | `src/lib/rate.ts` |
+| ledger integrity | HMAC-SHA256 over canonical JSON + `prev_hash` chain | ADR-004, server-side only |
+| secrets | `SUPABASE_SERVICE_ROLE_KEY`, `LEDGER_SECRET` | server env only, never a client |
+
+### The endpoints
+
+| method | path | body | returns |
+| --- | --- | --- | --- |
+| POST | `/challenge` | `{playerId}` | `{challengeId, salt, difficultyBits, expiresAt}` |
+| POST | `/submit` | `{challengeId, playerId, cellId, artifactId, nonce, hashes, ms}` | `{tokenId, estKwh, mapEvent, entry}` |
+| GET | `/health` | — | liveness |
+| GET | `/audit`, `/audit/latest`, `/audit/:range` | — | `AuditReport` |
+| POST | `/verify` | a pasted report | re-checks its signature |
+
+Two things to know before wiring calls up. **`/challenge` takes `playerId` and
+nothing else** — the client does not get to request a difficulty; the server
+issues it per player and auto-tunes ±1 toward a 3–6 s median. And **`nonce` is a
+string** (1–128 printable ASCII chars, no `:`), not a number.
 
 **Origin of this section.** The request that started this track asked for calls
-encrypted "via the strata backend bootstrap brands". The string `brand` does not
-appear in `clvi-gameclient`, `clvi-architecture`, or `clvi-backend`. The nearest
-real things are the row above — plus, possibly, the backend's own bootstrap
-*branch* (`claude/strata-ledger-bootstrap-csa88x`). Nothing was invented to fill
-the gap; if a sealing scheme is later ratified, it arrives as a CONTRACTS.md
-amendment and a superseding ADR, not as a client-side guess.
+encrypted "via the strata backend bootstrap brands". The string `brand` appears
+in no CLVI repo. The referent turned out to be the backend's bootstrap *branch*,
+which is what the table above was read from. Nothing was invented to fill the
+gap; if a sealing scheme is ever ratified it arrives as a CONTRACTS.md amendment
+and a superseding ADR, not as a client-side guess.
 
 ## Not done
 

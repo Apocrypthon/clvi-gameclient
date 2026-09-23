@@ -20,27 +20,40 @@ operated — which is exactly why none of `godot/` has been run. The code is
 written and documented; it is **not ratified**. Resolution is a human-merged ADR
 in `clvi-architecture` (adopt, move to its own repo, or drop). See docs/GODOT.md.
 
-**2. Contracts v1 has drifted from canonical.** `clvi-architecture/CONTRACTS.md`
-is the frozen source and this repo does not match it:
+**2. The browser client will not interoperate with the real backend.** The
+live backend is `clvi-backend@claude/strata-ledger-bootstrap-csa88x` (Netlify
+Functions + Supabase). Its source was read directly, and `src/mockLedger.ts`
+does not match it. None of this is live yet — the client still talks to the mock
+— so these are latent, but every one of them is a 400 the day the URL is
+switched:
 
-| line | canonical | here |
+| | real backend | here |
 | --- | --- | --- |
-| difficulty start | **18** | `DEFAULT_DIFFICULTY_BITS = 17` |
+| difficulty start | **18** (`src/lib/difficulty.ts`) | `DEFAULT_DIFFICULTY_BITS = 17` |
 | difficulty floor | **12** | `MIN_DIFFICULTY_BITS = 8` |
 | difficulty ceiling | **24** | absent |
+| who picks difficulty | **the server**, per player, auto-tuned ±1 toward a 3–6 s median | the client asks for a value |
+| `POST /challenge` body | **`{playerId}`** only | sends `cellId` and `difficultyBits` too |
+| challenge TTL | **90 s** | `CHALLENGE_TTL_MS = 120_000` |
+| `nonce` in `Submission` | **string**, 1–64/128 chars, rejected if not | `number` in `src/contracts.ts` |
 
-Caps match (30 s per attempt, −4 bits on reissue, 60 solves/day). The frozen
-block in SEED.md also omits the canonical `Difficulty`, `Caps`, `Integrity` and
-`Energy` lines and the `Account`, `LedgerEntry` and `AuditReport` types, and
-`src/contracts.ts` carries a local `SubmissionAck` that is not a contract type.
+The `nonce` row is the sharpest: `requireNonce()` fails anything that is not a
+string, so today's client would be rejected outright on every submit.
 
-Note the 17 was not arbitrary — the bootstrap session measured it — but
-CONTRACTS.md is explicit that it wins regardless: *"A repo whose copy differs
-from this block is out of contract, and reconciling it is that repo's next loop
-item."* The canonical line also says the **server** auto-tunes ±1 toward the
-3–6 s median, so the client should start at 18 and let the server move it rather
-than pinning a locally-measured number. Reconciling changes solve feel and the
-energy estimate, so it wants its own increment with fresh measurements.
+Caps do match (30 s per attempt, 60 solves/day). And A5's shape is right — the
+real `/submit` returns a `mapEvent` exactly as the client already expects.
+
+Note the 17 was not arbitrary; the bootstrap session measured it. But
+CONTRACTS.md is explicit that canonical wins — *"a repo whose copy differs from
+this block is out of contract, and reconciling it is that repo's next loop
+item"* — and the client should not be picking difficulty at all, since the
+server tunes it. Reconciling changes solve feel and the energy estimate, so it
+wants its own increment with fresh measurements.
+
+Also unreconciled: SEED.md's frozen block omits the canonical `Difficulty`,
+`Caps`, `Integrity` and `Energy` lines and the `Account`, `LedgerEntry` and
+`AuditReport` types; `src/contracts.ts` carries a local `SubmissionAck` that is
+not a contract type.
 
 ## Where the world is
 
@@ -193,9 +206,11 @@ MAP and FIND alternate. The top item of each is sized for one session.
 
 ### Both / housekeeping
 
-- **Reconcile Contracts v1 with `clvi-architecture`** (see Blocked #2). The
-  canonical block is the frozen source; this repo's difficulty numbers and its
-  copy of the block have both drifted. Re-measure after changing 17 → 18.
+- **Reconcile with the real backend** (see Blocked #2) — the single highest-value
+  item in this list. Take `nonce` → string first: it is a one-line type change
+  and without it every submit is rejected. Then difficulty (stop choosing it
+  client-side; the server tunes it), the `/challenge` body, and the 90 s TTL.
+  Re-measure solve times after, since 17 → 18 doubles the work per solve.
 
 - **Extend CI to the browser smoke test.** CI runs build and verify; nothing
   automated exercises the browser path, so an increment that breaks the dig or

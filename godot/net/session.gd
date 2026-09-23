@@ -3,69 +3,72 @@ extends Node
 ##
 ## Identity per clvi-architecture ADR-002: a custodial Guardian account reached
 ## by Supabase email OTP, surfaced as a display id of the form GRD-xxxxxx. No
-## crypto wallet, and no key material on the device — only the bearer token
-## below, which is exactly what this file refuses to persist.
+## crypto wallet, and no key material on the device.
+##
+## Note what is NOT here: a bearer token. The Strata backend
+## (clvi-backend@claude/strata-ledger-bootstrap-csa88x) puts no auth on its
+## endpoints — identity travels as `playerId` in the request body, and its CORS
+## policy allows the `content-type` header only, so an Authorization header
+## would be rejected before it was read. Holding a token here would be
+## cargo-cult.
 ##
 ## "Do not save session login" is a requirement, so this file deliberately
 ## contains no persistence of any kind:
 ##
 ##   - no FileAccess, no ConfigFile, no JSON written anywhere
-##   - nothing under user:// — not the token, not the player id, not a
-##     "remember me" flag, not a last-username convenience
+##   - nothing under user:// — not the player id, not the display id, not a
+##     "remember me" flag, not a last-email convenience
 ##   - no ProjectSettings or OS-level credential store
 ##
 ## Quitting, crashing, or closing the window loses the session, and the next
 ## launch starts at login. That is the intended behaviour, not a gap.
-##
-## Honest limit: GDScript Strings are immutable and garbage-collected, so
-## clearing a reference (below) drops it but cannot scrub the bytes out of
-## process memory. Not saving it is enforceable here; zeroing it is not.
 
-signal opened(player_id: String)
+signal opened(display_id: String)
 signal closed(reason: String)
 
-var _token := ""
+## Matches the backend's requireId(): 1-64 chars of [A-Za-z0-9_:.-].
+const ID_PATTERN := "^[A-Za-z0-9_:.-]{1,64}$"
+
 var _player_id := ""
-var _expires_at_unix := 0
+var _display_id := ""
+var _id_regex: RegEx
 
 
-func open(token: String, player_id: String, expires_at_unix: int) -> void:
-	if token.is_empty() or player_id.is_empty():
-		push_error("Session.open: refusing an empty token or player id.")
+func _ready() -> void:
+	_id_regex = RegEx.new()
+	_id_regex.compile(ID_PATTERN)
+
+
+## Called by the login flow once Supabase has verified the OTP.
+func open(player_id: String, display_id: String) -> void:
+	if _id_regex == null or _id_regex.search(player_id) == null:
+		# Reject here rather than letting the backend 400 on it later.
+		push_error("Session.open: player_id must be 1-64 chars of [A-Za-z0-9_:.-].")
 		return
-	_token = token
 	_player_id = player_id
-	_expires_at_unix = expires_at_unix
-	opened.emit(_player_id)
+	_display_id = display_id
+	opened.emit(_display_id)
 
 
 func is_active() -> bool:
-	if _token.is_empty():
-		return false
-	if _expires_at_unix > 0 and Time.get_unix_time_from_system() >= float(_expires_at_unix):
-		# Expired sessions are not "nearly valid" — drop it rather than letting
-		# a stale token reach the backend.
-		close("expired")
-		return false
-	return true
+	return not _player_id.is_empty()
 
 
+## The identity every player-scoped call carries in its BODY, not a header.
 func player_id() -> String:
-	return _player_id if is_active() else ""
+	return _player_id
 
 
-## The header StrataClient attaches to every authenticated call. Returns "" when
-## there is no live session, so callers cannot accidentally send "Bearer ".
-func authorization_header() -> String:
-	return ("Authorization: Bearer %s" % _token) if is_active() else ""
+## The user-visible handle, GRD-xxxxxx (Account.displayId in Contracts v1).
+func display_id() -> String:
+	return _display_id
 
 
 func close(reason := "signed out") -> void:
-	if _token.is_empty() and _player_id.is_empty():
+	if _player_id.is_empty() and _display_id.is_empty():
 		return
-	_token = ""
 	_player_id = ""
-	_expires_at_unix = 0
+	_display_id = ""
 	closed.emit(reason)
 
 
