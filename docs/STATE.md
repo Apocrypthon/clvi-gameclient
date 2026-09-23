@@ -1,7 +1,26 @@
 # STATE
 
-**Last session: 2026-09-03. Repo is green: build, verify, and smoke all pass, and
-CI now enforces the first two.**
+**Last session: 2026-09-23. Repo is green: build, verify, and smoke all pass, and
+CI enforces the first two.**
+
+> **A second track now exists.** `godot/` is the start of the 3D client
+> (`docs/GODOT.md`). It is separate from the browser client in `src/`, which is
+> unchanged and still governed by the frozen stack rules. **None of the Godot
+> code has been run** — no engine was available in the session that wrote it.
+> It also carries one unanswered question that blocks its transport design: see
+> "Blocked" below.
+
+## Blocked
+
+**What is "the strata backend bootstrap brands"?** A request asked for every
+Godot client call to be encrypted via it. The term appears nowhere in this repo
+(`brand` is a CSS class in `src/style.css`, nothing more), there is no backend,
+and no envelope format or key exchange is defined in any doc. `strata_client.gd`
+therefore enforces TLS — https only, verifying defaults, plaintext refused — and
+leaves application-layer sealing unimplemented behind a `require_sealed` switch
+that fails loud. Inventing a crypto envelope would look like security without
+being any. Answer needed from whoever holds the CLVI architecture context;
+until then the transport is TLS-only and `docs/GODOT.md` says so plainly.
 
 > **Branch divergence, read this first.** SEED.md and LOOP.md say ship to `loop`.
 > The bootstrap session's harness designated `claude/strata-client-bootstrap-60ptvl`
@@ -25,6 +44,7 @@ asked for, plus the milestones it transitively needed:
 | M4 regeneration | **done** — diffusing bloom field, persisted to localStorage |
 | M5 event feed | **done** — polls `/map-events`, falls back to the mock |
 | M6 LOD + polish | **not started** — this is the next MAP increment |
+| G1 world shell | **done, unrun** — sky, baseplate, camera fog (`docs/GODOT.md`) |
 | A1 registry | **done** — 20 finds, seeded weighted draw |
 | A2 dig | **done** — 600 ms press-and-hold, ring fill |
 | A3 the solve | **done** — one worker, 17 bits, 30 s cap, backoff, battery relief |
@@ -145,6 +165,19 @@ MAP and FIND alternate. The top item of each is sized for one session.
 5. **A2' — dig affordance.** Nothing on the map suggests which cells are diggable
    or that press-and-hold is the verb. First-run hint, or a subtle treatment on
    un-dug cells.
+
+### GODOT (new track, see docs/GODOT.md)
+
+1. **Open it in Godot 4 and fix what breaks.** The highest-value next step by a
+   distance: the track is unexercised code. Everything below is speculative
+   until someone has pressed play once.
+2. **Answer the sealing question** (see Blocked, above), then either implement
+   `_seal()`/`_open()` and flip `require_sealed`, or delete the switch and let
+   `docs/GODOT.md` record that TLS is the whole answer.
+3. **A login flow.** `Session.open()` is the seam and the world already refuses
+   to build without a session; nothing calls it yet.
+4. **A player controller.** The camera is static and the baseplate already has
+   collision waiting for one.
 
 ### Both / housekeeping
 

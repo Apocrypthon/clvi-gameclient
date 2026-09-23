@@ -1,0 +1,19 @@
+; Godot project for the STRATA 3D client track. See docs/GODOT.md.
+; The browser client in src/ is unaffected by this file.
+
+config_version=5
+
+[application]
+
+config/name="STRATA — Paradise"
+run/main_scene="res://world/paradise_world.tscn"
+config/features=PackedStringArray("4.2", "Forward Plus")
+
+[autoload]
+
+Session="*res://net/session.gd"
+StrataClient="*res://net/strata_client.gd"
+
+[rendering]
+
+anti_aliasing/quality/msaa_3d=2

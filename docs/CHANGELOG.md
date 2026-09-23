@@ -4,6 +4,56 @@ Newest first. One entry per session: date · what · why · files · verify resu
 
 ---
 
+## 2026-09-23 — Godot track: world shell, in-memory session, TLS transport
+
+**What.** A new `godot/` track: `paradise_world.gd` composes a blue
+`ProceduralSkyMaterial` sky, a 512 m white baseplate with matching collision, and
+fog — all in code, served behind a session check. Plus `session.gd` (in memory,
+never persisted) and `strata_client.gd` (https enforced, plaintext refused).
+`docs/GODOT.md` documents the track.
+
+**Why.** Asked for directly. `docs/ARCHITECTURE.md` has named Godot
+scene-streaming as the north star since the bootstrap, so this is the first code
+on that road rather than a new direction. The browser client in `src/` is
+untouched and its frozen stack rules still hold — worth noting that the repo is
+now two stacks, which CLAUDE.md's rules did not previously contemplate.
+
+**Notable decisions.**
+
+- **Fog lives on `Camera3D.environment`, and so does the sky.** A camera
+  environment *replaces* a `WorldEnvironment` rather than layering with it, so
+  "sky on the world, fog on the camera" is not expressible — the sky would
+  vanish. Both are in one resource, and GODOT.md explains why before someone
+  tries to split them.
+- **`fog_mode` and `fog_sky_affect` are probed, not assumed** — they are 4.3+
+  only, so `_has_property()` skips them on 4.0-4.2 instead of erroring.
+- **No session persistence, and honest about the limit.** No `FileAccess`, no
+  `user://`, no remember-me. The file also says what it *cannot* do: GDScript
+  strings are immutable and GC'd, so dropping the reference is not scrubbing
+  memory.
+- **Application-layer encryption is NOT implemented, on purpose.** The request
+  specified sealing "via the strata backend bootstrap brands"; no such thing
+  exists in this repo, and no envelope format or key exchange is defined
+  anywhere. TLS is enforced (https only, verifying defaults, plaintext refused)
+  and `require_sealed` is the switch that makes the remaining gap fail loud. A
+  guessed crypto envelope would look like security without being any. Recorded
+  under Blocked in STATE.md.
+
+**Files.** `godot/project.godot`, `godot/world/paradise_world.{gd,tscn}`,
+`godot/net/{session,strata_client}.gd`, `docs/GODOT.md` (new); `CLAUDE.md`,
+`docs/STATE.md` (layout, Blocked, G1, Next).
+
+**Verify.** `npm run build` green and `npm run verify` 30/30 — the browser client
+is untouched and still passes, which is the only thing CI covers. **The GDScript
+is unrun.** No Godot binary was present and downloads.tuxfamily.org and the
+GitHub releases API are both blocked by the egress proxy, so verification was
+limited to what can be checked statically: tab-consistent indentation (mixed
+indentation is a hard GDScript error), balanced delimiters, and no unindented
+function bodies — all clean across the three scripts. Behaviour is unverified;
+expect to fix something on first open.
+
+---
+
 ## 2026-09-03 — CI enforces build + verify
 
 **What.** `.github/workflows/ci.yml`: `npm ci`, `npm run build`, `npm run verify`

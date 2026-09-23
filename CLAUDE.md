@@ -46,8 +46,10 @@ src/
   regen.ts feed.ts               M4 bloom diffusion, M5 event polling
   registry.ts dig.ts solver.ts solver.worker.ts hash.ts   the FIND track
   holi.ts energy.ts ui.ts main.ts
+godot/                           the 3D client track — separate from src/,
+                                 see docs/GODOT.md
 docs/                            VISION ARCHITECTURE DATA ARTIFACTS ENERGY
-                                 STATE CHANGELOG LOOP
+                                 GODOT STATE CHANGELOG LOOP
 ```
 
 ## Commands
