@@ -4,6 +4,50 @@ Newest first. One entry per session: date · what · why · files · verify resu
 
 ---
 
+## 2026-09-23 — `nonce` is a string, as the ledger has always required
+
+**What.** `Submission.nonce` changes from `number` to `string` across the client:
+`contracts.ts`, `hash.ts`, the worker, `solver.ts`, `dig.ts`, `ui.ts` and the
+verify harness. `src/mockLedger.ts` now rejects a malformed nonce the way the
+real ledger does, and `npm run verify` gained six checks covering the rule.
+
+**Why.** The live backend's `requireNonce()` accepts only a 1–128 char
+printable-ASCII string without `":"`, and this client sent a JSON number — so
+every submit would have been refused the moment the mock was swapped for the
+real URL. Latent, but total.
+
+**Notable decisions.**
+
+- **The digest does not change, and that is checked rather than asserted.** The
+  preimage was always `` `${salt}:${nonce}:${playerId}` ``, which interpolates the
+  number to its decimal string; the client now carries that string explicitly
+  and submits the same bytes it hashed. Evidence: the 12-bit fixture in
+  `npm run verify` finds **nonce 1277 before and after** the change.
+- **Counting stays numeric inside the worker.** The nonce becomes a string at
+  the point it is hashed, so the winning candidate *is* the string that gets
+  submitted — the shape of the bug being fixed is "hashed one representation,
+  sent another", and this makes that unrepresentable.
+- **The mock now refuses what production refuses.** A mock that accepts more
+  than the thing it stands in for is worse than no mock; it is what let this
+  reach a green suite in the first place.
+- **A failing check caught a silent no-op mid-change.** The new "the nonce is a
+  string" assertion failed on first run because a patch to the harness's solve
+  loop had not matched and quietly changed nothing. Worth recording as evidence
+  for LOOP.md's "verify by observation": the suite was green on a client that
+  still counted numerically.
+
+**Files.** `src/contracts.ts`, `src/hash.ts` (+ `isValidNonce`),
+`src/solver.worker.ts`, `src/solver.ts`, `src/dig.ts`, `src/ui.ts`,
+`src/mockLedger.ts`, `scripts/verify.mjs`, `docs/STATE.md`.
+
+**Verify.** `npm run build` green. `npm run verify` 39/39, including the six new
+nonce checks and the unchanged 1277 fixture. `npm run smoke` 13/13 in headless
+Chromium at iPhone 13 size — a real press-and-hold produced *Casino Carpet Fibre
+Bloom* in 1.8 s / 91,136 hashes / 69,173 h/s, card rendering nonce `449369` as a
+string, no console errors.
+
+---
+
 ## 2026-09-23 — Godot track: world shell, in-memory session, TLS transport
 
 **What.** A new `godot/` track: `paradise_world.gd` composes a blue

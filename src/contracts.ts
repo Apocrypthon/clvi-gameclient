@@ -15,7 +15,10 @@ export interface Submission {
   playerId: string
   cellId: string
   artifactId: string
-  nonce: number
+  /** A string server-side: 1-128 chars of printable ASCII, never ":" (it is the
+   *  preimage separator). The client sends the decimal form of the nonce it
+   *  found, which is exactly what it hashed. */
+  nonce: string
   hashes: number
   ms: number
   deviceClass: DeviceClass

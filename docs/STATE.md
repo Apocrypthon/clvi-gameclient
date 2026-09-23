@@ -35,10 +35,16 @@ switched:
 | who picks difficulty | **the server**, per player, auto-tuned ±1 toward a 3–6 s median | the client asks for a value |
 | `POST /challenge` body | **`{playerId}`** only | sends `cellId` and `difficultyBits` too |
 | challenge TTL | **90 s** | `CHALLENGE_TTL_MS = 120_000` |
-| `nonce` in `Submission` | **string**, 1–64/128 chars, rejected if not | `number` in `src/contracts.ts` |
 
-The `nonce` row is the sharpest: `requireNonce()` fails anything that is not a
-string, so today's client would be rejected outright on every submit.
+**Fixed 2026-09-23: `nonce` is now a string.** It was typed `number`, and the
+backend's `requireNonce()` rejects anything that is not a 1–128 char
+printable-ASCII string without `":"` — so every submit would have been refused.
+The digest is unchanged: the preimage was always built by interpolating the
+number into `` `${salt}:${nonce}:${playerId}` ``, which produces the same decimal
+string the client now carries explicitly and sends. `src/mockLedger.ts` enforces
+the same rule so the mock cannot accept what production refuses, and
+`npm run verify` covers the pattern, the bounds, and that the submitted nonce is
+the one that was hashed.
 
 Caps do match (30 s per attempt, 60 solves/day). And A5's shape is right — the
 real `/submit` returns a `mapEvent` exactly as the client already expects.
@@ -206,11 +212,11 @@ MAP and FIND alternate. The top item of each is sized for one session.
 
 ### Both / housekeeping
 
-- **Reconcile with the real backend** (see Blocked #2) — the single highest-value
-  item in this list. Take `nonce` → string first: it is a one-line type change
-  and without it every submit is rejected. Then difficulty (stop choosing it
-  client-side; the server tunes it), the `/challenge` body, and the 90 s TTL.
-  Re-measure solve times after, since 17 → 18 doubles the work per solve.
+- **Finish reconciling with the real backend** (see Blocked #2). `nonce` is done.
+  What is left: stop choosing difficulty client-side (the server owns it and
+  tunes per player), trim the `/challenge` body to `{playerId}`, and drop the TTL
+  to 90 s. Re-measure solve times after, since 17 → 18 doubles the work per
+  solve — that measurement is the reason this is its own increment.
 
 - **Extend CI to the browser smoke test.** CI runs build and verify; nothing
   automated exercises the browser path, so an increment that breaks the dig or

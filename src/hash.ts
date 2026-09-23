@@ -4,8 +4,18 @@
 
 const encoder = new TextEncoder()
 
-export function challengeInput(salt: string, nonce: number, playerId: string): Uint8Array {
+/** The nonce is a STRING here, and it is the same string that goes on the wire.
+ *  Hashing one representation and submitting another is the bug this signature
+ *  exists to prevent. */
+export function challengeInput(salt: string, nonce: string, playerId: string): Uint8Array {
   return encoder.encode(`${salt}:${nonce}:${playerId}`)
+}
+
+/** The backend's rule: 1-128 chars, printable ASCII, no ":". */
+const NONCE_PATTERN = /^[\x21-\x39\x3b-\x7e]{1,128}$/
+
+export function isValidNonce(nonce: string): boolean {
+  return NONCE_PATTERN.test(nonce)
 }
 
 export function leadingZeroBits(buf: ArrayBuffer): number {
@@ -22,7 +32,7 @@ export function leadingZeroBits(buf: ArrayBuffer): number {
   return bits
 }
 
-export async function digestBits(salt: string, nonce: number, playerId: string): Promise<number> {
+export async function digestBits(salt: string, nonce: string, playerId: string): Promise<number> {
   const digest = await crypto.subtle.digest('SHA-256', challengeInput(salt, nonce, playerId))
   return leadingZeroBits(digest)
 }
@@ -30,7 +40,7 @@ export async function digestBits(salt: string, nonce: number, playerId: string):
 /** Verifies a claimed nonce — the same check the ledger will run server-side. */
 export async function verifySolve(
   salt: string,
-  nonce: number,
+  nonce: string,
   playerId: string,
   difficultyBits: number,
 ): Promise<boolean> {

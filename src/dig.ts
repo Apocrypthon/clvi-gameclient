@@ -27,7 +27,7 @@ export type DigPhase = 'idle' | 'arming' | 'solving' | 'reveal'
 export interface DigResult {
   artifact: Artifact
   cellId: string
-  nonce: number
+  nonce: string
   hashes: number
   ms: number
   hps: number

@@ -10,7 +10,7 @@ export interface SolveProgress {
 }
 
 export type SolveOutcome =
-  | { ok: true; nonce: number; hashes: number; ms: number }
+  | { ok: true; nonce: string; hashes: number; ms: number }
   | { ok: false; reason: 'timeout' | 'cancelled'; hashes: number; ms: number }
 
 /**

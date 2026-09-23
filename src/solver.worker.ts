@@ -15,7 +15,7 @@ export interface SolveRequest {
 
 export type SolveMessage =
   | { type: 'progress'; hashes: number; ms: number; hps: number }
-  | { type: 'solved'; nonce: number; hashes: number; ms: number }
+  | { type: 'solved'; nonce: string; hashes: number; ms: number }
   | { type: 'timeout'; hashes: number; ms: number }
 
 import { challengeInput, leadingZeroBits } from './hash'
@@ -50,7 +50,7 @@ async function run(req: SolveRequest, gen: number): Promise<void> {
     nonce += BATCH
     if (gen !== generation) return
 
-    if (found >= 0) {
+    if (found !== '') {
       post({ type: 'solved', nonce: found, hashes, ms: performance.now() - started })
       return
     }
@@ -70,16 +70,18 @@ async function run(req: SolveRequest, gen: number): Promise<void> {
 
 /** Fires BATCH digests concurrently; subtle.digest per-call overhead dominates,
  *  so batching is what keeps the phone in the 3–6 s window. */
-async function scanBatch(req: SolveRequest, start: number): Promise<number> {
+async function scanBatch(req: SolveRequest, start: number): Promise<string> {
   const jobs: Promise<ArrayBuffer>[] = new Array(BATCH)
+  // Counting is numeric for speed; the nonce becomes a string at the point it
+  // is hashed, so the winning candidate IS the string that gets submitted.
   for (let i = 0; i < BATCH; i++) {
-    jobs[i] = crypto.subtle.digest('SHA-256', challengeInput(req.salt, start + i, req.playerId))
+    jobs[i] = crypto.subtle.digest('SHA-256', challengeInput(req.salt, String(start + i), req.playerId))
   }
   const digests = await Promise.all(jobs)
   for (let i = 0; i < BATCH; i++) {
-    if (leadingZeroBits(digests[i]) >= req.difficultyBits) return start + i
+    if (leadingZeroBits(digests[i]) >= req.difficultyBits) return String(start + i)
   }
-  return -1
+  return ''
 }
 
 function post(msg: SolveMessage): void {

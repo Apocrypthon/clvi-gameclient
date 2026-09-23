@@ -6,7 +6,7 @@ import { bboxOfRings, project, unproject, M_PER_DEG_LAT, M_PER_DEG_LON, CELL_M }
 import { Grid, OUTSIDE, RESTORED } from '../src/grid.ts'
 import { Regen } from '../src/regen.ts'
 import { REGISTRY, RARITY_WEIGHT, drawArtifact, seedFrom } from '../src/registry.ts'
-import { digestBits, verifySolve } from '../src/hash.ts'
+import { digestBits, isValidNonce, verifySolve } from '../src/hash.ts'
 import { estKwh, WATTS } from '../src/energy.ts'
 
 let failures = 0
@@ -102,21 +102,35 @@ const PLAYER = 'p_verify'
 const BITS = 12
 let nonce = 0
 const t0 = performance.now()
-let found = -1
-while (found < 0 && nonce < 200000) {
+let found = ''
+while (found === '' && nonce < 200000) {
   const batch = []
-  for (let i = 0; i < 256; i++) batch.push(digestBits(SALT, nonce + i, PLAYER))
+  // Counting is numeric; the nonce becomes a string at the point it is hashed,
+  // so the winning candidate IS the string that would be submitted.
+  for (let i = 0; i < 256; i++) batch.push(digestBits(SALT, String(nonce + i), PLAYER))
   const bits = await Promise.all(batch)
-  for (let i = 0; i < bits.length; i++) if (bits[i] >= BITS && found < 0) found = nonce + i
+  for (let i = 0; i < bits.length; i++) if (bits[i] >= BITS && found === '') found = String(nonce + i)
   nonce += 256
 }
 const elapsed = performance.now() - t0
 const hps = (nonce / elapsed) * 1000
-check(`a ${BITS}-bit solve is found`, found >= 0, `nonce ${found}`)
+check(`a ${BITS}-bit solve is found`, found !== '', `nonce ${found}`)
 check('the found nonce verifies', await verifySolve(SALT, found, PLAYER, BITS))
 const foundBits = await digestBits(SALT, found, PLAYER)
 check('verification is exact at the boundary', await verifySolve(SALT, found, PLAYER, foundBits))
 check('verification rejects one bit too many', !(await verifySolve(SALT, found, PLAYER, foundBits + 1)))
+
+// The nonce crosses the wire as a string (clvi-backend requireNonce). These
+// guard the bug class where a client hashes one representation and submits
+// another, which the backend rejects with a 400 on every submit.
+check('the nonce is a string', typeof found === 'string', `typeof ${typeof found}`)
+check('the nonce passes the backend pattern', isValidNonce(found))
+check('the submitted nonce is the one that was hashed', await verifySolve(SALT, found, PLAYER, foundBits))
+check('a nonce containing the separator is rejected', !isValidNonce(`12:34`))
+check('a space-bearing nonce is rejected', !isValidNonce('12 34'))
+check('an empty nonce is rejected', !isValidNonce(''))
+check('a 129-char nonce is rejected', !isValidNonce('1'.repeat(129)))
+check('a 128-char nonce is accepted', isValidNonce('1'.repeat(128)))
 console.log(
   `     hash rate here: ${Math.round(hps).toLocaleString()} h/s → ` +
     `17 bits ≈ ${(131072 / hps).toFixed(1)} s on this machine (phones run 3-8x slower)`,

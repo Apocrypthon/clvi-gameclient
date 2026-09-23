@@ -56,7 +56,7 @@ export class Hud {
       ['Hashes', result.hashes.toLocaleString()],
       ['Rate', `${Math.round(result.hps).toLocaleString()} h/s`],
       ['Difficulty', `${result.difficultyBits} bits`],
-      ['Nonce', String(result.nonce)],
+      ['Nonce', result.nonce],
     ])
 
     el('card-energy').textContent =

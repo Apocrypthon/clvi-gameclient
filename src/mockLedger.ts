@@ -1,4 +1,5 @@
 import type { Challenge, MapEvent, Submission, SubmissionAck } from './contracts'
+import { isValidNonce } from './hash'
 
 /**
  * Stand-in for the Strata ledger until the backend is live. It issues real
@@ -34,6 +35,13 @@ export async function requestChallenge(opts: {
 
 export async function submit(submission: Submission): Promise<SubmissionAck> {
   await sleep(LATENCY_MS)
+  // The real ledger's requireNonce() rejects anything that is not a 1-128 char
+  // printable-ASCII string without ":". Mirror it here so a client that would
+  // be 400'd in production is 400'd against the mock too — a mock that accepts
+  // more than the thing it stands in for is worse than no mock.
+  if (!isValidNonce(submission.nonce)) {
+    throw new Error(`mockLedger: nonce rejected — must be 1-128 printable ASCII chars, no ":"`)
+  }
   const event: MapEvent = { cellId: submission.cellId, ts: Date.now(), kind: 'restored' }
   return { accepted: true, event }
 }
