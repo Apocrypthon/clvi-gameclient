@@ -6,6 +6,25 @@ from the browser client in `src/`, which stays TypeScript + Vite + Canvas 2D und
 the frozen stack rules in CLAUDE.md. Nothing in `godot/` imports from `src/`, and
 nothing in `src/` knows this directory exists.
 
+## Status: out of contract with ADR-001, pending a human decision
+
+`clvi-architecture` ADR-001 defers the Godot stack and is explicit about who may
+un-defer it:
+
+> The Godot/Rust/Nakama stack is not rejected — it is deferred and recorded.
+> **Moving to it requires a superseding ADR, not a session's judgment call.**
+
+This track was added on request, and the code is here and coherent — but that
+sentence means a loop session cannot ratify it. ADR-001 also requires that loop
+sessions verify work with `npm run build` plus browser tests on an iPhone-profile
+viewport, and *"a stack that cannot be checked that way from a phone is out of
+contract with how this project is operated"* — which is precisely the problem
+this track hit: none of the GDScript below has ever been run.
+
+Resolving it is a human action in `clvi-architecture`: merge a superseding ADR
+that moves Godot from graduation path to current stack, or decide this track
+belongs in its own repo, or drop it. Until then, treat `godot/` as unratified.
+
 ## What is here
 
 ```
@@ -62,7 +81,7 @@ scrub the bytes from process memory. *Not saving* it is enforceable here;
 *zeroing* it is not. If the threat model needs the second thing, that is a
 different design (native buffer, or never holding a bearer token client-side).
 
-## Transport: TLS enforced, payload sealing NOT implemented
+## Transport: TLS, and no client-side envelope (by contract)
 
 `strata_client.gd` guarantees, before any socket opens:
 
@@ -71,28 +90,29 @@ different design (native buffer, or never holding a bearer token client-side).
 2. TLS options are the verifying defaults (bundled CA chain, hostname checked),
    and nothing in the file can switch verification off.
 
-That is the whole of "every call is encrypted" in the ordinary sense.
+There is deliberately **no application-layer encryption envelope**, and that is
+a contract decision rather than an omission. From `clvi-architecture`
+ADR-002: *"No key material is generated, stored, or asked for on the device in
+the MVP."* An app-layer seal needs a client-side key, so adding one would put
+this client out of contract.
 
-**What is not implemented is application-layer sealing of the payload itself.**
-The request that prompted this track asked for calls encrypted "via the strata
-backend bootstrap brands". No such component exists anywhere in this repo — the
-string `brand` appears only as a CSS class in `src/style.css`, and there is no
-backend, no key exchange, and no envelope format defined in any doc here.
+The actual security model of the system, read out of `clvi-architecture` and
+`clvi-backend`:
 
-Rather than invent one, the client ships the guarantee it can make and marks the
-gap:
+| concern | mechanism | where |
+| --- | --- | --- |
+| confidentiality in transit | TLS | here, enforced |
+| identity | Supabase email OTP → bearer token, display id `GRD-xxxxxx` | ADR-002 |
+| ledger integrity | HMAC-SHA256 over canonical JSON, `prev_hash` chain | ADR-004, server-side only |
+| secrets | `SUPABASE_SERVICE_ROLE_KEY`, `LEDGER_SECRET` | server env only, never the client |
 
-- `_seal()` / `_open()` are identity functions and say so.
-- `require_sealed` defaults to `false` so the client works over TLS today.
-  Setting it `true` makes **every call fail** until `_seal()` is real — the
-  switch exists so the gap can be made loud rather than forgotten.
-
-Guessing at a crypto envelope would produce something that looks like security
-without being any, which is worse than a documented absence. **Open question for
-whoever knows the answer: what is "bootstrap brands"?** Likely candidates are a
-term from another CLVI repo (`clvi-architecture`?), a name for a per-tenant key
-bundle fetched at bootstrap, or simply TLS restated. Until it is answered, this
-file is TLS-only and honest about it.
+**Origin of this section.** The request that started this track asked for calls
+encrypted "via the strata backend bootstrap brands". The string `brand` does not
+appear in `clvi-gameclient`, `clvi-architecture`, or `clvi-backend`. The nearest
+real things are the row above — plus, possibly, the backend's own bootstrap
+*branch* (`claude/strata-ledger-bootstrap-csa88x`). Nothing was invented to fill
+the gap; if a sealing scheme is later ratified, it arrives as a CONTRACTS.md
+amendment and a superseding ADR, not as a client-side guess.
 
 ## Not done
 

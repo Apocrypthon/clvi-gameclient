@@ -1,6 +1,11 @@
 extends Node
 ## The signed-in session, held in memory ONLY.
 ##
+## Identity per clvi-architecture ADR-002: a custodial Guardian account reached
+## by Supabase email OTP, surfaced as a display id of the form GRD-xxxxxx. No
+## crypto wallet, and no key material on the device — only the bearer token
+## below, which is exactly what this file refuses to persist.
+##
 ## "Do not save session login" is a requirement, so this file deliberately
 ## contains no persistence of any kind:
 ##

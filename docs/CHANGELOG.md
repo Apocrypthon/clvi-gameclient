@@ -31,13 +31,25 @@ now two stacks, which CLAUDE.md's rules did not previously contemplate.
   `user://`, no remember-me. The file also says what it *cannot* do: GDScript
   strings are immutable and GC'd, so dropping the reference is not scrubbing
   memory.
-- **Application-layer encryption is NOT implemented, on purpose.** The request
-  specified sealing "via the strata backend bootstrap brands"; no such thing
-  exists in this repo, and no envelope format or key exchange is defined
-  anywhere. TLS is enforced (https only, verifying defaults, plaintext refused)
-  and `require_sealed` is the switch that makes the remaining gap fail loud. A
-  guessed crypto envelope would look like security without being any. Recorded
-  under Blocked in STATE.md.
+- **No client-side encryption envelope — resolved against the contracts, not
+  guessed.** The request specified sealing "via the strata backend bootstrap
+  brands". That string exists in no CLVI repo, so `clvi-architecture` and
+  `clvi-backend` were read directly: ADR-002 says *"no key material is
+  generated, stored, or asked for on the device in the MVP"*, which forbids a
+  client-side seal outright. The real model is TLS in transit, a Supabase OTP
+  bearer for identity (ADR-002), and server-side HMAC-SHA256 for ledger
+  integrity (ADR-004). `strata_client.gd` enforces TLS and documents that;
+  the speculative `require_sealed`/`_seal()` seam was removed rather than left
+  implying something was coming.
+
+- **Two contract problems surfaced while reading those repos** and are recorded
+  under Blocked in STATE.md, not fixed here. (a) ADR-001 defers the Godot stack
+  and says moving to it *"requires a superseding ADR, not a session's judgment
+  call"* — so this track is written but unratified, and needs a human decision.
+  (b) This repo has drifted from the frozen Contracts v1 block: difficulty start
+  17 vs canonical 18, floor 8 vs 12, no ceiling 24. CONTRACTS.md makes
+  reconciling that the next loop item; it changes solve feel and the energy
+  estimate, so it wants its own increment.
 
 **Files.** `godot/project.godot`, `godot/world/paradise_world.{gd,tscn}`,
 `godot/net/{session,strata_client}.gd`, `docs/GODOT.md` (new); `CLAUDE.md`,

@@ -3,33 +3,44 @@
 **Last session: 2026-09-23. Repo is green: build, verify, and smoke all pass, and
 CI enforces the first two.**
 
-> **A second track now exists.** `godot/` is the start of the 3D client
-> (`docs/GODOT.md`). It is separate from the browser client in `src/`, which is
-> unchanged and still governed by the frozen stack rules. **None of the Godot
-> code has been run** — no engine was available in the session that wrote it.
-> It also carries one unanswered question that blocks its transport design: see
-> "Blocked" below.
+> **A second track now exists, and it is unratified.** `godot/` is the start of
+> the 3D client (`docs/GODOT.md`). The browser client in `src/` is unchanged.
+> **None of the Godot code has been run** — no engine was available in the
+> session that wrote it. It is also out of contract with ADR-001, and this repo
+> has drifted from the frozen Contracts v1 block. Both are under "Blocked".
 
-## Blocked
+## Blocked — two things need a human, not a session
 
-**What is "the strata backend bootstrap brands"?** A request asked for every
-Godot client call to be encrypted via it. The term appears nowhere in this repo
-(`brand` is a CSS class in `src/style.css`, nothing more), there is no backend,
-and no envelope format or key exchange is defined in any doc. `strata_client.gd`
-therefore enforces TLS — https only, verifying defaults, plaintext refused — and
-leaves application-layer sealing unimplemented behind a `require_sealed` switch
-that fails loud. Inventing a crypto envelope would look like security without
-being any. Answer needed from whoever holds the CLVI architecture context;
-until then the transport is TLS-only and `docs/GODOT.md` says so plainly.
+**1. The Godot track is out of contract with ADR-001.** `clvi-architecture`
+ADR-001 defers the Godot/Rust/Nakama stack and says moving to it *"requires a
+superseding ADR, not a session's judgment call."* It also requires loop sessions
+to verify with `npm run build` plus iPhone-viewport browser tests, and says a
+stack that cannot be checked that way is out of contract with how the project is
+operated — which is exactly why none of `godot/` has been run. The code is
+written and documented; it is **not ratified**. Resolution is a human-merged ADR
+in `clvi-architecture` (adopt, move to its own repo, or drop). See docs/GODOT.md.
 
-> **Branch divergence, read this first.** SEED.md and LOOP.md say ship to `loop`.
-> The bootstrap session's harness designated `claude/strata-client-bootstrap-60ptvl`
-> instead, and that branch merged to `main` as
-> [PR #1](https://github.com/Apocrypthon/clvi-gameclient/pull/1). `main` now
-> carries the full bootstrap. If your harness gives you a branch, use it and note
-> it here; if it does not, `loop` is the default. A merged PR cannot take new
-> commits — restart your branch from `main` rather than stacking on merged
-> history.
+**2. Contracts v1 has drifted from canonical.** `clvi-architecture/CONTRACTS.md`
+is the frozen source and this repo does not match it:
+
+| line | canonical | here |
+| --- | --- | --- |
+| difficulty start | **18** | `DEFAULT_DIFFICULTY_BITS = 17` |
+| difficulty floor | **12** | `MIN_DIFFICULTY_BITS = 8` |
+| difficulty ceiling | **24** | absent |
+
+Caps match (30 s per attempt, −4 bits on reissue, 60 solves/day). The frozen
+block in SEED.md also omits the canonical `Difficulty`, `Caps`, `Integrity` and
+`Energy` lines and the `Account`, `LedgerEntry` and `AuditReport` types, and
+`src/contracts.ts` carries a local `SubmissionAck` that is not a contract type.
+
+Note the 17 was not arbitrary — the bootstrap session measured it — but
+CONTRACTS.md is explicit that it wins regardless: *"A repo whose copy differs
+from this block is out of contract, and reconciling it is that repo's next loop
+item."* The canonical line also says the **server** auto-tunes ±1 toward the
+3–6 s median, so the client should start at 18 and let the server move it rather
+than pinning a locally-measured number. Reconciling changes solve feel and the
+energy estimate, so it wants its own increment with fresh measurements.
 
 ## Where the world is
 
@@ -171,15 +182,20 @@ MAP and FIND alternate. The top item of each is sized for one session.
 1. **Open it in Godot 4 and fix what breaks.** The highest-value next step by a
    distance: the track is unexercised code. Everything below is speculative
    until someone has pressed play once.
-2. **Answer the sealing question** (see Blocked, above), then either implement
-   `_seal()`/`_open()` and flip `require_sealed`, or delete the switch and let
-   `docs/GODOT.md` record that TLS is the whole answer.
+2. **Resolved:** there is no client-side encryption envelope, by ADR-002 ("no
+   key material on the device in the MVP"). `strata_client.gd` enforces TLS and
+   documents the real model — Supabase OTP bearer for identity, server-side
+   HMAC for ledger integrity. Nothing further to build here.
 3. **A login flow.** `Session.open()` is the seam and the world already refuses
    to build without a session; nothing calls it yet.
 4. **A player controller.** The camera is static and the baseplate already has
    collision waiting for one.
 
 ### Both / housekeeping
+
+- **Reconcile Contracts v1 with `clvi-architecture`** (see Blocked #2). The
+  canonical block is the frozen source; this repo's difficulty numbers and its
+  copy of the block have both drifted. Re-measure after changing 17 → 18.
 
 - **Extend CI to the browser smoke test.** CI runs build and verify; nothing
   automated exercises the browser path, so an increment that breaks the dig or

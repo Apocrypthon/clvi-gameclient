@@ -7,27 +7,22 @@ extends Node
 ##   2. TLS options are the verifying defaults (bundled CA chain, hostname
 ##      checked). Nothing in this file can turn verification off.
 ##
-## NOT IMPLEMENTED: application-layer sealing of the payload itself.
+## There is deliberately NO application-layer encryption envelope here, and
+## that is a contract decision rather than an omission:
 ##
-## The request that prompted this file asked for calls encrypted "via the
-## strata backend bootstrap brands". No such thing exists anywhere in this
-## repo — see docs/GODOT.md. Rather than invent an envelope format and a key
-## exchange, which would look like security without being any, this file ships
-## the transport guarantee it can actually make and leaves `require_sealed`
-## as the switch that makes the gap loud: turn it on and every call fails
-## until a real sealing scheme is wired into _seal()/_open().
+##   clvi-architecture ADR-002 — "No key material is generated, stored, or
+##   asked for on the device in the MVP."
+##
+## An app-layer seal needs a client-side key, so adding one would put this
+## client out of contract. The real model is TLS for confidentiality in
+## transit, a Supabase OTP bearer token for identity (ADR-002), and
+## server-side HMAC-SHA256 for ledger integrity (ADR-004) — none of which
+## asks the client to hold key material. See docs/GODOT.md.
 
 signal request_failed(path: String, reason: String)
 
 ## Set from the login flow, e.g. "https://api.strata.example".
 var base_url := ""
-
-## When true, refuse to send anything until _seal() is a real implementation.
-## Left false so the client is usable over TLS in the meantime; flip it once
-## the sealing contract exists and unsealed calls should become errors.
-var require_sealed := false
-
-const _SEALING_IMPLEMENTED := false
 
 
 func get_json(path: String) -> Dictionary:
@@ -44,9 +39,6 @@ func _request(method: int, path: String, payload: Variant) -> Dictionary:
 		return _fail(path, "base_url is not set")
 	if not url.begins_with("https://"):
 		return _fail(path, "refusing plaintext transport for %s" % url)
-	if require_sealed and not _SEALING_IMPLEMENTED:
-		return _fail(path, "sealed payloads required but no sealing scheme is implemented")
-
 	var http := HTTPRequest.new()
 	add_child(http)
 	# Verifying client defaults. Guarded because set_tls_options landed after
@@ -61,7 +53,7 @@ func _request(method: int, path: String, payload: Variant) -> Dictionary:
 	if not auth.is_empty():
 		headers.append(auth)
 
-	var body := "" if payload == null else JSON.stringify(_seal(payload))
+	var body := "" if payload == null else JSON.stringify(payload)
 	var err := http.request(url, headers, method, body)
 	if err != OK:
 		http.queue_free()
@@ -84,23 +76,13 @@ func _request(method: int, path: String, payload: Variant) -> Dictionary:
 	if status < 200 or status >= 300:
 		return _fail(path, "backend returned %d" % status)
 
-	return {"ok": true, "status": status, "data": _open(parsed), "error": ""}
+	return {"ok": true, "status": status, "data": parsed, "error": ""}
 
 
 func _resolve(path: String) -> String:
 	if base_url.is_empty():
 		return ""
 	return "%s/%s" % [base_url.rstrip("/"), path.lstrip("/")]
-
-
-## Application-layer sealing seam. Identity until a real scheme is defined.
-func _seal(payload: Dictionary) -> Dictionary:
-	return payload
-
-
-## Inverse of _seal(). Identity until a real scheme is defined.
-func _open(parsed: Variant) -> Variant:
-	return parsed
 
 
 func _fail(path: String, reason: String) -> Dictionary:
